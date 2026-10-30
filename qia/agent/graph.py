@@ -9,7 +9,7 @@ class State(TypedDict, total=False):
     question: str; inv_id: str; session_id: str; scope: dict; resumed: bool; prior_findings: list
     prior_hypothesis: dict; intent: str; evidence: list; steps: list; issues: list; onset: str; terms: list
     recalls: list; sql: dict; answer: str; hypothesis: str; confidence: str; answered: bool; answer_by: str
-    validation: dict; driven: dict; signal: str
+    validation: dict; driven: dict; signal: str; answer_mode: str
 
 KEYS = set(State.__annotations__)
 

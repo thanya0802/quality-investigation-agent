@@ -97,7 +97,7 @@ def symptom_terms(ctx, model, component, since, k=6):
                              (model, component, since))
     before = warehouse.query("SELECT description FROM complaints WHERE model=? AND component=? AND week_start < ?",
                              (model, component, since))
-    noise = {"extremely", "concerned", "very", "really", "issue", "issues", "problem", "problems", "ford", "dealer",
+    noise = {"extremely", "concerned", "very", "really", "though", "well", "currently", "even", "again", "never", "issue", "issues", "problem", "problems", "ford", "dealer",
              "dealership", "recall", "recalls", "vehicle", "car"}
     keep = lambda t: t not in noise and not any(ch.isdigit() for ch in t)
     rc = Counter(t for r in recent for t in set(tokenize(r["description"])) if keep(t))
@@ -167,7 +167,16 @@ def run_sql(ctx, sql):
     safe = guard(sql)
     return {"sql": safe, "rows": warehouse.query(safe)}
 
-def vocab():
+_vocab_cache = {}
+def vocab(ttl_seconds=600):
+    """Distinct models/components, cached per process: on BigQuery each lookup is a billed query
+    and ~1s of latency, and the vocabulary only changes when data is reloaded."""
+    import time
+    key = (config.WAREHOUSE, str(config.DB_PATH))
+    hit = _vocab_cache.get(key)
+    if hit and time.time() - hit[0] < ttl_seconds:
+        return hit[1]
     models = [r["model"] for r in warehouse.query("SELECT DISTINCT model FROM complaints")]
     comps = [r["component"] for r in warehouse.query("SELECT DISTINCT component FROM complaints")]
+    _vocab_cache[key] = (time.time(), (models, comps))
     return models, comps

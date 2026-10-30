@@ -34,6 +34,34 @@ CREATE TABLE IF NOT EXISTS audit_log(
 DATA_TABLES = {"complaints", "recalls"}
 MEMORY_TABLES = {"investigations", "findings", "hypotheses"}
 
+# ---------------- BigQuery backend ----------------
+_bq = None
+def _bq_client():
+    global _bq
+    if _bq is None:
+        from google.cloud import bigquery
+        _bq = bigquery.Client(project=config.GCP_PROJECT or None)
+    return _bq
+
+def set_bq_client(client):
+    """For tests: inject a fake BigQuery client."""
+    global _bq
+    _bq = client
+
+def _bq_job_config(params, dry_run=False):
+    from google.cloud import bigquery
+    types = {bool: "BOOL", int: "INT64", float: "FLOAT64", str: "STRING"}
+    return bigquery.QueryJobConfig(
+        dry_run=dry_run, use_query_cache=not dry_run,
+        default_dataset=f"{_bq_client().project}.{config.BQ_DATASET}",   # lets SQL say FROM complaints
+        maximum_bytes_billed=config.MAX_BYTES_BILLED,                    # hard cost cap enforced by BigQuery
+        query_parameters=[bigquery.ScalarQueryParameter(None, types.get(type(p), "STRING"), p) for p in params])
+
+def _bq_query(sql, params):
+    job = _bq_client().query(sql, job_config=_bq_job_config(params))
+    return [dict(row.items()) for row in job.result()]
+
+# ---------------- SQLite backend ----------------
 def _connect(readonly=False):
     path = config.DB_PATH
     if readonly:
@@ -44,11 +72,16 @@ def _connect(readonly=False):
     return con
 
 def init():
+    if config.WAREHOUSE == "bigquery":
+        return                      # tables are created by Terraform
     with _connect() as con:
         con.executescript(SCHEMA)
 
 def query(sql, params=(), readonly=True):
-    """Read path. Agent-generated SQL always comes here with readonly=True."""
+    """Read path. Agent-generated SQL always comes here with readonly=True.
+    On BigQuery, read-only is enforced by IAM: the agent's service account only has dataViewer."""
+    if config.WAREHOUSE == "bigquery":
+        return _bq_query(sql, tuple(params))
     con = _connect(readonly=readonly)
     try:
         cur = con.execute(sql, params)
@@ -57,13 +90,18 @@ def query(sql, params=(), readonly=True):
     finally:
         con.close()
 
-def estimate_bytes(sql):
-    """BigQuery: a dry run returns total_bytes_processed before anything is billed.
+def estimate_bytes(sql, params=()):
+    """BigQuery: a dry run returns total_bytes_processed before anything runs or is billed.
     SQLite has no equivalent, so locally this returns None and the cap check is skipped."""
-    return None
+    if config.WAREHOUSE != "bigquery":
+        return None
+    job = _bq_client().query(sql, job_config=_bq_job_config(tuple(params), dry_run=True))
+    return job.total_bytes_processed
 
 @contextmanager
 def tx():
+    if config.WAREHOUSE == "bigquery":
+        raise RuntimeError("The app never writes to BigQuery; load data with data/load_bigquery.py")
     con = _connect()
     try:
         yield con

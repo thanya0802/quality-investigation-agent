@@ -26,7 +26,7 @@ def guard(sql, allowed_tables=warehouse.DATA_TABLES, max_rows=500):
         raise UnsafeSQL(f"table(s) not allowed: {sorted(bad)}")
     if not re.search(r"\blimit\s+\d+\s*$", s, re.I):
         s += f" LIMIT {max_rows}"
-    est = warehouse.estimate_bytes(s)
+    est = warehouse.estimate_bytes(s)          # BigQuery dry run: bytes scanned, before anything runs
     if est is not None and est > config.MAX_BYTES_BILLED:
         raise UnsafeSQL(f"query would scan {est:,} bytes, above the {config.MAX_BYTES_BILLED:,} cap")
     return s

@@ -1,15 +1,14 @@
 """Governance: an append-only record of what the agent did, with what input, and what came back.
 Every tool is wrapped with @audited, so nothing can run without leaving a row."""
 import functools, json, time
-from . import warehouse
+from . import state
 from .telemetry import log, new_id, now
 
 def record(ctx, actor, action, name, inp, out_summary, rows, latency_ms, status):
-    with warehouse.tx() as con:
-        con.execute("INSERT INTO audit_log VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (new_id("aud"), ctx.get("inv_id"), ctx.get("session_id"), actor, action, name,
-                     json.dumps(inp, default=str)[:4000], str(out_summary)[:1000], rows,
-                     round(latency_ms, 1), status, now()))
+    state.get().add_audit(dict(audit_id=new_id("aud"), inv_id=ctx.get("inv_id"), session_id=ctx.get("session_id"),
+                               actor=actor, action=action, name=name, input=json.dumps(inp, default=str)[:4000],
+                               output_summary=str(out_summary)[:1000], row_count=rows,
+                               latency_ms=round(latency_ms, 1), status=status, created_at=now()))
     log(inv_id=ctx.get("inv_id"), node=name, action=action, latency_ms=round(latency_ms, 1), status=status, rows=rows)
 
 def audited(action):
@@ -38,4 +37,4 @@ def _summary(out):
     return str(out)[:200]
 
 def trail(inv_id):
-    return warehouse.query("SELECT * FROM audit_log WHERE inv_id=? ORDER BY created_at, rowid", (inv_id,))
+    return state.get().audit_trail(inv_id)

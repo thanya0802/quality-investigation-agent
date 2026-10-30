@@ -1,0 +1,22 @@
+[
+ {"q": "How many complaints are there for the F-150?", "gold": "SELECT COUNT(*) FROM complaints WHERE model = 'F-150'"},
+ {"q": "How many Escape complaints involve a crash?", "gold": "SELECT COUNT(*) FROM complaints WHERE model = 'ESCAPE' AND crash = 1"},
+ {"q": "Which component has the most complaints for the Explorer?", "gold": "SELECT component FROM complaints WHERE model = 'EXPLORER' GROUP BY component ORDER BY COUNT(*) DESC LIMIT 1"},
+ {"q": "How many recall records are on file for the Bronco Sport?", "gold": "SELECT COUNT(*) FROM recalls WHERE model = 'BRONCO SPORT'"},
+ {"q": "Which F-150 model year has the most complaints?", "gold": "SELECT model_year FROM complaints WHERE model = 'F-150' GROUP BY model_year ORDER BY COUNT(*) DESC LIMIT 1"},
+ {"q": "How many Mustang Mach E complaints report at least one injury?", "gold": "SELECT COUNT(*) FROM complaints WHERE model = 'MUSTANG MACH E' AND injured > 0"},
+ {"q": "How many complaints were received in 2025 across all models?", "gold": "SELECT COUNT(*) FROM complaints WHERE received_date >= '2025-01-01' AND received_date <= '2025-12-31'"},
+ {"q": "Which five states have the most complaints?", "gold": "SELECT state FROM complaints GROUP BY state ORDER BY COUNT(*) DESC LIMIT 5"},
+ {"q": "How many distinct components have complaints for the Escape?", "gold": "SELECT COUNT(DISTINCT component) FROM complaints WHERE model = 'ESCAPE'"},
+ {"q": "How many complaints involve a fire?", "gold": "SELECT COUNT(*) FROM complaints WHERE fire = 1"},
+ {"q": "What is the earliest recall report date for the Explorer?", "gold": "SELECT MIN(report_date) FROM recalls WHERE model = 'EXPLORER'"},
+ {"q": "How many Bronco Sport engine complaints are there?", "gold": "SELECT COUNT(*) FROM complaints WHERE model = 'BRONCO SPORT' AND component = 'ENGINE'"},
+ {"q": "Which model has the most complaints?", "gold": "SELECT model FROM complaints GROUP BY model ORDER BY COUNT(*) DESC LIMIT 1"},
+ {"q": "How many complaints are there for model year 2021 Explorers?", "gold": "SELECT COUNT(*) FROM complaints WHERE model = 'EXPLORER' AND model_year = 2021"},
+ {"q": "How many Explorer recall records concern seats?", "gold": "SELECT COUNT(*) FROM recalls WHERE model = 'EXPLORER' AND component = 'SEATS'"},
+ {"q": "How many complaints mention stalling?", "gold": "SELECT COUNT(*) FROM complaints WHERE LOWER(description) LIKE '%stall%'"},
+ {"q": "How many complaints were received in September 2026?", "gold": "SELECT COUNT(*) FROM complaints WHERE received_date >= '2026-09-01' AND received_date <= '2026-09-30'"},
+ {"q": "Which component of the Mustang Mach E has the most complaints?", "gold": "SELECT component FROM complaints WHERE model = 'MUSTANG MACH E' GROUP BY component ORDER BY COUNT(*) DESC LIMIT 1"},
+ {"q": "How many recall records were reported in 2026?", "gold": "SELECT COUNT(*) FROM recalls WHERE report_date >= '2026-01-01' AND report_date <= '2026-12-31'"},
+ {"q": "For each model, how many complaints involve a crash?", "gold": "SELECT model, COUNT(*) FROM complaints WHERE crash = 1 GROUP BY model"}
+]

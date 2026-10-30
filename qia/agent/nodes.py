@@ -107,6 +107,25 @@ Return JSON: {{"intent": "...", "model": "... or null", "component": "... or nul
 
 # ---------------- investigate ----------------
 def investigate(state):
+    """Agentic (Gemini picks tools) when configured; deterministic pipeline otherwise or on any failure."""
+    if config.AGENT_MODE == "agentic" and llm.available() and state["intent"] in ("investigate", "detect", "sql"):
+        ev = list(state.get("evidence", []))
+        def add(kind, text, ids):
+            ev.append({"eid": f"E{len(ev) + 1}", "kind": kind, "text": text, "ids": sorted(set(ids))})
+        try:
+            from . import agentic
+            out = agentic.run({**state, "scope": dict(state["scope"])}, _ctx(state), add)
+            if out["steps"]:
+                if out["scope"] != state["scope"]:
+                    memory.update_scope(state["inv_id"], out["scope"].get("model"), out["scope"].get("component"))
+                intent = "investigate" if out["scope"].get("component") else state["intent"]
+                return {**out, "evidence": ev, "intent": intent, "answer_mode": "agentic"}
+        except Exception as e:                      # any SDK/model failure -> deterministic path
+            from ..audit import record
+            record(_ctx(state), "agent", "fallback", "agentic_loop", {}, f"{type(e).__name__}: {e}", 0, 0.0, "error")
+    return deterministic_investigate(state)
+
+def deterministic_investigate(state):
     ctx, scope, intent = _ctx(state), state["scope"], state["intent"]
     ev, steps = list(state.get("evidence", [])), []
     def add(kind, text, ids):
@@ -254,7 +273,9 @@ def _nl_to_sql(ctx, question, scope):
             sql = build(scope); break
     if sql is None and llm.available():
         try:
-            sql = llm.generate_json(ctx, SQL_PROMPT.format(q=question, scope=scope), "nl_to_sql")["sql"]
+            models, comps = tools.vocab()
+            sql = llm.generate_json(ctx, SQL_PROMPT.format(q=question, scope=scope, models=models, comps=comps),
+                                    "nl_to_sql")["sql"]
         except Exception:
             sql = None
     if sql is None:
@@ -264,9 +285,15 @@ def _nl_to_sql(ctx, question, scope):
     except UnsafeSQL as e:
         return {"sql": sql, "rows": [], "error": f"blocked by SQL guard: {e}"}
 
-SQL_PROMPT = """Write ONE read-only SQL SELECT (BigQuery standard SQL, portable) over:
+SQL_PROMPT = """Write ONE read-only SQL SELECT over these tables. Use only portable SQL that runs on both
+SQLite and BigQuery: no date functions; dates are 'YYYY-MM-DD' strings, so compare them with string
+literals (e.g. received_date >= '2025-01-01'). crash and fire are 0/1; injured is a count.
+`make` is the manufacturer (e.g. FORD). Vehicle names such as F-150 or EXPLORER are values of `model`.
+Return only the columns the question asks for.
 complaints(complaint_id, make, model, model_year, component, crash, fire, injured, fail_date, received_date, week_start, state, description)
 recalls(recall_id, make, model, model_years, component, report_date, defect_summary, remedy)
+Exact model values: {models}
+Exact component values: {comps}
 Current investigation scope: {scope}. Question: {q}
 Return JSON: {{"sql": "..."}}"""
 
@@ -327,7 +354,9 @@ def _deterministic_report(state):
     if signal in (None, "none"):
         hyp = None          # no unusual rise: report the facts, don't invent a root cause
     elif signal == "recall_driven":
-        camps = ", ".join(driven.get("campaigns") or []) or (top["recall_id"].split(":")[0] if top else "an existing recall")
+        cited = driven.get("campaigns") or []
+        same = [cp for cp in cited if any(r["recall_id"].startswith(cp) and r["component"] == c for r in recs)]
+        camps = ", ".join(same or cited) or (top["recall_id"].split(":")[0] if top else "an existing recall")
         conf = "high" if driven.get("share", 0) >= 0.7 else "medium"
         hyp = (f"Recall-driven rise, not a new defect: the increase disappears when complaints citing a recall are "
                f"excluded ({int(driven.get('share', 0) * 100)}% cite one, mainly {camps}), typically remedy or parts "
@@ -339,10 +368,13 @@ def _deterministic_report(state):
                f"recall population and track whether complaints decline after remedy.")
     elif top and (top["cited_by_complaints"] or top["shared_terms"]):
         conf = "medium"
+        overl = [r for r in recs if r["cited_by_complaints"]] or [top]
+        named = "; ".join(f"{r['recall_id'].split(':')[0]} ({r['component']}: {_short(r['defect_summary'], 90)})"
+                          for r in overl[:2])
         hyp = (f"Possible new issue: the rise persists after excluding recall-citing complaints, with symptoms "
-               f"'{top_terms}'. These overlap {top['recall_id'].split(':')[0]} ({top['component']}: "
-               f"{_short(top['defect_summary'], 120)}). Next: determine whether these failures fall within that "
-               f"recall's scope or are a separate issue; pull diagnostic codes and repair orders for the affected model years.")
+               f"'{top_terms}'. Owners link it to {named}. Next: determine whether these failures fall within "
+               f"{'those recalls' if len(overl) > 1 else 'that recall'}' scope or are a separate issue; pull "
+               f"diagnostic codes and repair orders for the affected model years.")
     else:
         conf = "medium"
         hyp = (f"Unaddressed emerging issue: {m} {c} complaints dominated by '{top_terms}' with no matching recall. "
@@ -373,7 +405,7 @@ def validate(state):
         known_ids |= set(f["evidence_ids"])
     text = (state.get("answer") or "") + " " + (state.get("hypothesis") or "")
     issues = []
-    cited = set(re.findall(r"\[(E\d+)\]", text))
+    cited = {e for grp in re.findall(r"\[((?:E\d+\s*,?\s*)+)\]", text) for e in re.findall(r"E\d+", grp)}
     if cited - {e["eid"] for e in ev}:
         issues.append(f"cites unknown evidence {sorted(cited - {e['eid'] for e in ev})}")
     if invented := set(ID_RE.findall(text)) - known_ids:
@@ -396,7 +428,8 @@ def persist(state):
         memory.add_finding(inv, sid, "complaints", f"{len(cids)} representative complaints reviewed", cids)
     if state.get("hypothesis") and state.get("validation", {}).get("passed"):
         ids = [i for e in state.get("evidence", []) for i in e["ids"]]
-        memory.add_hypothesis(inv, state["hypothesis"], state.get("confidence") or "medium", ids)
+        clean = re.sub(r"\s*\[(?:E\d+\s*,?\s*)+\]", "", state["hypothesis"]).strip()
+        memory.add_hypothesis(inv, clean, state.get("confidence") or "medium", ids)
     return {}
 
 def _ctx(state):

@@ -1,65 +1,88 @@
 # Quality Investigation Agent
 
-An AI agent that helps vehicle quality engineers find emerging defects and investigate their root
-cause. It writes and runs SQL over complaint and recall data, works through a multi-step
-investigation, remembers what it found across sessions, and logs everything it does.
+An AI agent for vehicle quality engineers. It finds emerging defects in public complaint data,
+investigates their root cause step by step, tells new problems apart from recall-driven complaint
+surges, remembers what it found across sessions, and logs every action it takes.
 
-> **Data:** real, public NHTSA vehicle complaints (official flat files, public domain) and real
-> recalls (NHTSA's recalls API) for Ford models. A small synthetic fixture with planted issues is
-> used only by unit tests and CI, where answers must be known in advance and nothing is downloaded.
+**Data:** real NHTSA vehicle complaints (official flat files) and recalls (NHTSA recalls API) for
+five Ford models: F-150, Escape, Explorer, Bronco Sport, Mustang Mach-E. 14,142 complaints,
+237 recall records, Dec 2019 – Oct 2026. A small synthetic fixture is used only by unit tests and CI.
 
-**Status:** M1 (local core) complete. M2: BigQuery adapter, Terraform, Cloud Run.
+## Results on real data
 
-## What it does
+**Early warning backtest:** the detector replayed week by week over history. Did it flag a rise
+in complaints for the same model and component in the 26 weeks before each real recall?
+
+| Variant | Recalls preceded by an alert | Median lead | Alerts raised | Alert precision* |
+|---|---|---|---|---|
+| All complaints | 31 of 226 (13.7%) | 18 weeks | 107 | 24.3% |
+| Excluding complaints that cite a recall | **32 of 226 (14.2%)** | **18.5 weeks** | **70 (−35%)** | **32.9%** |
+
+*Share of alerts followed by a recall for the same model and component within 26 weeks.
+
+How to read it: most recalls originate in manufacturer testing and warranty data, not public
+complaints, so complaints are one early signal among several. Ignoring recall-citing complaints
+(owners reporting remedy or parts delays) removed a third of alerts without losing coverage.
+
+**Two real investigations** (`python -m qia.cli ask ...`):
+- *Explorer seats*: rise disappears once recall-citing complaints are excluded; 67% cite
+  26V451000 (second-row seat switch). Verdict: recall-driven (parts delays), not a new defect.
+- *Bronco Sport engine*: rise persists without recall-citing complaints; symptoms are no-start
+  after refueling with EVAP codes. Verdict: possible new issue overlapping fuel-injector recall
+  25V467000, which NHTSA files under FUEL SYSTEM rather than ENGINE, so a per-component search misses it.
+
+**NL-to-SQL execution accuracy** (`make nl2sql`, 20 questions with hand-written gold queries):
+19/20 (95%) with gemini-3.5-flash-lite; median latency 704 ms, p95 959 ms. The miss is an
+ambiguous question ("mentions stalling" matched only "stalling", not "stall"/"stalled").
+
+## How it works
 ```
-question ─► load memory ─► plan ─► investigate ─► report ─► validate ─► persist
-                │                     │                          │           │
-        resume scope, findings   detect spike → drill down   citations     findings +
-        and prior conclusions    → symptoms → similar        checked in    hypothesis
-                                 complaints → recalls        code          saved
+question -> load memory -> plan -> investigate -> report -> validate -> persist
+                                       |
+              agentic: Gemini picks tools in a function-calling loop (max 8 steps)
+              deterministic: fixed pipeline (no LLM, and the fallback on any failure)
 ```
-- **Emerging-issue detection:** weekly complaint counts per model/component, flagged with a rolling z-score. Simple on purpose, so an engineer can check it by hand.
-- **Explainable root cause:** which symptom words are over-represented since the spike began, representative complaints (cited by ID), model-year and safety breakdown, recall linkage with timing ("complaints rose 6 weeks before the recall").
-- **SQL agent:** templated or Gemini-written SQL, passed through a guard (read-only, table allowlist, no comments or multi-statements, row cap; bytes-billed cap via dry run in M2) and run on a read-only connection.
-- **Investigation memory:** investigations, findings and hypotheses persist; follow-ups like "which model years?" inherit the scope; new investigations surface earlier conclusions for the same scope only.
-- **Governance:** every tool call, SQL statement and LLM call is written to an audit log; write requests are refused; reports cite evidence and invented IDs are rejected.
+**Tools** (all audited): detect_emerging (two views: with and without recall-citing complaints),
+drill_down, symptom_terms, similar_complaints, recall_driven_share, rank_recalls (all of the
+model's recalls, owner-cited first), run_sql (guarded), search_memory.
 
-## Run on real data
-1. From nhtsa.gov/nhtsa-datasets-and-apis → Complaints, download `COMPLAINTS_RECEIVED_2020-2024.zip`
-   and `COMPLAINTS_RECEIVED_2025-2026.zip`; unzip the `.txt` files into `data/raw/`.
-2. `make real` loads Ford complaints (default: F-150, Escape, Explorer, Bronco Sport, Mustang Mach-E)
-   and fetches their recalls from NHTSA's API. Change models with `make real MODELS="..."`.
-3. `make backtest` measures, on real history, how often a complaint spike preceded a real recall.
-4. `python -m qia.cli ask "Are there any emerging issues?"`
+**Guardrails in code, not in the prompt:** read-only SQL guard (single SELECT, table allowlist, no
+comments, row cap, BigQuery dry-run byte cap) plus a read-only service account; every tool, SQL
+and LLM call written to the audit log; reports must cite evidence and may not mention IDs absent
+from it (otherwise a deterministic report replaces the LLM's); write requests refused.
 
-## Run tests (synthetic fixture)
+**Detection:** last-4-week complaint count vs. what the previous 26 weeks predict, using median
+and MAD (robust to earlier spikes) with a Poisson floor; incomplete weeks and "UNKNOWN OR OTHER"
+excluded. Every number can be recomputed by hand.
+
+## Architecture on GCP
+| Concern | Local | GCP |
+|---|---|---|
+| Complaints and recalls | SQLite | BigQuery (month-partitioned, clustered by model and component) |
+| Memory and audit log | SQLite | Firestore |
+| LLM | optional | Gemini via Secret Manager |
+| Serving | uvicorn | Cloud Run (private, scale to zero) |
+| Infrastructure | n/a | Terraform (`infra/`) |
+
+Why two stores: BigQuery is built for scanning analytics data, not for small frequent updates
+(changing an investigation's scope, superseding a hypothesis). Firestore handles those.
+
+## Run locally
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
-make data && make test && make gate && make demo
-python -m qia.cli ask "Which model years are affected?" --inv <inv_id from the demo>
-python -m qia.cli audit <inv_id>
-make api   # http://localhost:8000/docs
+python -m pytest -q
+# real data: unzip NHTSA COMPLAINTS_RECEIVED_*.txt into data/raw/, then
+make real MODELS="F-150,ESCAPE,EXPLORER,BRONCO SPORT,MUSTANG MACH E"
+make backtest
+python -m qia.cli ask "Find the most urgent issue and investigate its root cause"
+export GEMINI_API_KEY=...   # optional: agentic mode + NL-to-SQL eval (make nl2sql)
 ```
-Optional: `export GEMINI_API_KEY=...` for Gemini planning, NL-to-SQL and report drafting (validated, with deterministic fallback).
 
-## Real-data results
-Fill in from `make backtest` once run: recalls evaluated, share preceded by a spike, median lead
-time, and alert precision. Expect modest numbers: many recalls come from manufacturer testing,
-not public complaints, and that limitation is worth explaining in interviews.
+## Deploy to GCP
+See DEPLOY.md. Every service used is within Google Cloud's free tier at portfolio scale.
 
-## Test-fixture results (synthetic, no LLM)
-| Category | Pass |
-|---|---|
-| Detection | 1/1 |
-| Root cause (recall-linked, unaddressed, no-spike, unscoped) | 4/4 |
-| Memory across sessions | 2/2 |
-| SQL | 1/1 |
-| Governance (write refusal, off-topic) | 2/2 |
-
-10/10 on data where the issues were planted by the same author is a sanity check, not a benchmark.
-The meaningful test is real NHTSA data: does a spike precede a real recall for the same component?
-
-## Not built yet (don't claim these)
-BigQuery adapter and dry-run byte caps, Terraform, Cloud Run deployment, embedding-based memory
-search, a UI. See BUILD_LOG.md.
+## Limitations
+- Public complaints are noisy and self-reported; most recalls are not preceded by them.
+- Firestore ordering and filtering happen in Python (fine for tens of investigations).
+- The agentic mode's quality depends on the model; the deterministic path is always available.

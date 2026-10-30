@@ -12,8 +12,11 @@ def main():
     if args.cmd == "ask":
         st = ask(args.question, inv_id=args.inv)
         print(f"investigation: {st['inv_id']}  intent: {st['intent']}  engine: {st['engine']}  "
-              f"answer_by: {st['answer_by']}  validation: {st['validation']}\n")
+              f"mode: {st.get('answer_mode') or 'deterministic'}  answer_by: {st['answer_by']}  "
+              f"validation: {st['validation']}\n")
         print(st["answer"])
+        if st.get("answer_mode") == "agentic":
+            print(f"\nTools Gemini chose: {' -> '.join(st.get('steps', []))}")
         print(f"\nContinue this investigation with: --inv {st['inv_id']}")
     else:
         for r in audit.trail(args.inv_id):

@@ -5,3 +5,7 @@ data/*.csv
 data/raw/
 evals/results/
 .env
+infra/.terraform/
+infra/*.tfstate*
+infra/terraform.tfvars
+infra/.terraform.lock.hcl

@@ -1,7 +1,7 @@
 """API behind the quality-engineer UI. Run: uvicorn api.main:app --reload --port 8000"""
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from qia import audit, config, memory, tools, warehouse
+from qia import audit, config, memory, tools
 from qia.agent.graph import ask
 
 app = FastAPI(title="Quality Investigation Agent API", version="0.1.0")
@@ -12,11 +12,12 @@ class AskIn(BaseModel):
 
 def _public(st):
     return {k: st.get(k) for k in ("inv_id", "session_id", "scope", "intent", "answer", "hypothesis", "confidence",
-                                   "answer_by", "engine", "steps", "validation", "evidence", "resumed")}
+                                   "answer_by", "engine", "steps", "validation", "evidence", "resumed", "signal", "answer_mode")}
 
 @app.get("/v1/health")
 def health():
-    return {"ok": True, "warehouse": config.WAREHOUSE, "llm": config.USE_LLM}
+    return {"ok": True, "warehouse": config.WAREHOUSE, "state_store": config.STATE_STORE, "llm": config.USE_LLM,
+            "agent_mode": config.AGENT_MODE}
 
 @app.get("/v1/emerging")
 def emerging(model: str | None = None):
@@ -36,7 +37,7 @@ def follow_up(inv_id: str, body: AskIn):
 
 @app.get("/v1/investigations")
 def list_investigations():
-    return warehouse.query("SELECT * FROM investigations ORDER BY updated_at DESC LIMIT 100")
+    return memory.list_all()
 
 @app.get("/v1/investigations/{inv_id}")
 def get_investigation(inv_id: str):

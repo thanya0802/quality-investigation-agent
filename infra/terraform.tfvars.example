@@ -1,0 +1,2 @@
+project_id      = "your-project-id"
+# billing_account = "000000-000000-000000"   # optional: enables the budget alert
