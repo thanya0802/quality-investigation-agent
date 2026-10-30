@@ -17,8 +17,9 @@ Use the tools; never guess numbers. Good practice:
 2. For a model+component, call detect_emerging twice: ignore_recall_complaints=true (new problems) and
    false (all complaints). A rise only when recall-citing complaints are included is recall-driven
    (remedy or parts delays), not a new defect.
-3. Then drill_down by model_year, symptom_terms since the onset week, similar_complaints,
-   recall_driven_share, and rank_recalls (which searches all of the model's recalls).
+3. Then drill_down by model_year, and call symptom_terms, similar_complaints, recall_driven_share and
+   rank_recalls with `since` set to the onset_week that detect_emerging returned. A wider window
+   (e.g. a whole year) blurs the new symptoms into old ones. If no rise was found, use the last 26 weeks.
 4. Use run_sql (one read-only SELECT over complaints/recalls) only for questions the tools don't cover.
 Stop as soon as you have enough evidence and reply with one short sentence starting with DONE."""
 

@@ -10,9 +10,14 @@ gcloud config set project YOUR_PROJECT_ID
 ```
 
 ## 2. Create the infrastructure (first apply: no Cloud Run service yet)
+A new project ships with the Cloud Resource Manager API disabled, and Terraform needs it to enable
+the other APIs, so turn on the two bootstrap APIs once by hand:
 ```bash
+make bootstrap
 make infra
 ```
+If service-account creation fails with "IAM API has not been used", the API is still propagating;
+wait a minute and run `make infra` again (Terraform only creates what's missing).
 Creates: APIs, BigQuery dataset and tables, Firestore, Secret Manager secret, Artifact Registry,
 service accounts with least privilege. Type `yes` when Terraform shows the plan.
 
@@ -30,6 +35,7 @@ make load-bq
 ```bash
 make image
 ```
+Builds run as the `qia-build` service account and log to Cloud Logging only (see cloudbuild.yaml).
 
 ## 6. Deploy the Cloud Run service
 ```bash
@@ -40,7 +46,8 @@ make deploy
 ```bash
 gcloud run services proxy qia --region us-central1 --port 8081
 ```
-In a second terminal: `make smoke`
+Leave it running; in a second terminal: `make smoke`. The first request includes a cold start.
+Service logs: `gcloud run services logs read qia --region us-central1 --limit 30`.
 
 ## Cost
 BigQuery (1 TiB queries and 10 GiB storage free per month), Cloud Run (2M requests free),

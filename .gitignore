@@ -8,4 +8,4 @@ evals/results/
 infra/.terraform/
 infra/*.tfstate*
 infra/terraform.tfvars
-infra/.terraform.lock.hcl
+data/*.db-*

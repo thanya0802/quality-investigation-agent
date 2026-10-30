@@ -1,5 +1,5 @@
 PY ?= python3
-.PHONY: real backtest data test eval gate demo api lint clean nl2sql infra load-bq image deploy smoke
+.PHONY: real backtest data test eval gate demo api lint clean nl2sql bootstrap infra load-bq image deploy smoke
 MODELS ?= F-150,ESCAPE,EXPLORER,BRONCO SPORT,MUSTANG MACH-E
 real:             ## REAL NHTSA data: complaints from data/raw + recalls from NHTSA's API
 	$(PY) data/load_nhtsa.py --make FORD --models "$(MODELS)" --years 2020-2026
@@ -34,8 +34,10 @@ infra:
 	cd infra && terraform init -upgrade && terraform apply -var project_id=$(PROJECT)
 load-bq:
 	GCP_PROJECT=$(PROJECT) $(PY) data/load_bigquery.py
+bootstrap:
+	gcloud services enable cloudresourcemanager.googleapis.com serviceusage.googleapis.com --project $(PROJECT)
 image:
-	gcloud builds submit --tag $(IMAGE) --region $(REGION) \
+	gcloud builds submit --config cloudbuild.yaml --substitutions _IMAGE=$(IMAGE) --region $(REGION) \
 	  --service-account projects/$(PROJECT)/serviceAccounts/qia-build@$(PROJECT).iam.gserviceaccount.com \
 	  --default-buckets-behavior REGIONAL_USER_OWNED_BUCKET
 deploy:

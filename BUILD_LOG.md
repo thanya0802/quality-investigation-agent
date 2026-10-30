@@ -81,3 +81,19 @@ Notes on what broke, why, and what changed. Newest last.
   that produced them.
 - Tests failed on a machine with GEMINI_API_KEY exported: the suite switched to agentic mode and
   called the real API. An autouse fixture now forces offline mode; Gemini tests opt in with a fake client.
+
+## Deploying to GCP
+- First `terraform apply` failed before creating anything: Terraform needs the Cloud Resource
+  Manager API to enable APIs, and a new project has it off. Added a one-time bootstrap step.
+- Second apply created the APIs, BigQuery, Firestore, the secret and Artifact Registry, then failed
+  creating service accounts: the IAM API had been enabled 22 seconds earlier and hadn't propagated.
+  A rerun succeeded; service accounts now depend on the API resources.
+- Cloud Build with the custom build service account failed because the default logs bucket isn't
+  accessible to it, and the error suggested granting storage.admin. Chose Cloud Logging-only build
+  logs (cloudbuild.yaml) instead, keeping the build account least-privilege. Build took 50 s.
+- Smoke test on Cloud Run: health check reports BigQuery, Firestore and agentic mode; an agentic
+  investigation of Bronco Sport engine complaints returned 200 in ~31 s with validation passing.
+- In that run Gemini passed `since = 2024-01-01` to the symptom tools instead of the onset week the
+  detector returned, so the symptom terms came out generic. The agent instructions now require the
+  onset week.
+- Terraform's provider lock file is now committed so every machine uses the same provider version.

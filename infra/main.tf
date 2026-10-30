@@ -103,6 +103,7 @@ resource "google_artifact_registry_repository" "qia" {
 resource "google_service_account" "agent" {
   account_id   = "qia-agent"
   display_name = "Quality Investigation Agent (runtime)"
+  depends_on   = [google_project_service.apis]   # IAM API must be on (and propagated) first
 }
 
 resource "google_bigquery_dataset_iam_member" "agent_reads_data" {     # read-only: no dataEditor
@@ -127,6 +128,7 @@ resource "google_secret_manager_secret_iam_member" "agent_reads_key" {
 resource "google_service_account" "build" {
   account_id   = "qia-build"
   display_name = "Quality Investigation Agent (image builds)"
+  depends_on   = [google_project_service.apis]
 }
 
 resource "google_project_iam_member" "build" {

@@ -1,0 +1,8 @@
+# Build logs go to Cloud Logging only. With a custom build service account the default is a
+# logs bucket it can't access; granting storage.admin would fix that but break least privilege.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_IMAGE}", "."]
+images: ["${_IMAGE}"]
+options:
+  logging: CLOUD_LOGGING_ONLY

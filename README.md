@@ -79,8 +79,11 @@ python -m qia.cli ask "Find the most urgent issue and investigate its root cause
 export GEMINI_API_KEY=...   # optional: agentic mode + NL-to-SQL eval (make nl2sql)
 ```
 
-## Deploy to GCP
-See DEPLOY.md. Every service used is within Google Cloud's free tier at portfolio scale.
+## Deployed on GCP
+Running on Cloud Run with BigQuery, Firestore and Gemini (key in Secret Manager), all created by
+Terraform and built with Cloud Build. An agentic investigation of Bronco Sport engine complaints
+completes end to end in about 30 seconds, including a cold start. Steps are in DEPLOY.md; every
+service used is within Google Cloud's free tier at this scale.
 
 ## Limitations
 - Public complaints are noisy and self-reported; most recalls are not preceded by them.
