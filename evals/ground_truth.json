@@ -1,0 +1,15 @@
+{
+  "emerging": [
+    {
+      "model": "VESTA",
+      "component": "SERVICE BRAKES",
+      "recall": "RCL-26V-118"
+    },
+    {
+      "model": "ARDEN",
+      "component": "ELECTRICAL SYSTEM",
+      "recall": null
+    }
+  ],
+  "not_emerging_recall": "RCL-25V-077"
+}

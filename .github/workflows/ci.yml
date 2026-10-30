@@ -1,0 +1,15 @@
+name: ci
+on: [push, pull_request]
+permissions: { contents: read }
+jobs:
+  test-and-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: ruff check .
+      - run: pytest -q
+      - run: python evals/run_evals.py --gate
+  # M2 adds: terraform plan/apply, Cloud Run deploy via Workload Identity Federation
