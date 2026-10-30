@@ -1,5 +1,8 @@
 """Agent evals with deterministic checks against planted ground truth. --gate fails CI below threshold."""
-import argparse, json, sys, tempfile
+import argparse
+import json
+import sys
+import tempfile
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from qia import config                                  # noqa: E402

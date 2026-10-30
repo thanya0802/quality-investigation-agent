@@ -5,7 +5,8 @@ too noisy. Instead: the sum of the last WINDOW_WEEKS weeks is compared with what
 BASELINE_WEEKS weeks predict, using the MEDIAN and MAD (robust: an earlier spike in the baseline
 doesn't hide a new one), with a Poisson floor so near-zero baselines don't produce huge z-scores.
 An engineer can recompute every number by hand."""
-import math, statistics
+import math
+import statistics
 from . import config
 
 def _robust(base):

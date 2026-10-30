@@ -8,7 +8,9 @@ Download from nhtsa.gov/nhtsa-datasets-and-apis -> Complaints:
 Unzip the .txt files into data/raw/, then:
   python data/load_nhtsa.py --make FORD --models "F-150,ESCAPE,EXPLORER,BRONCO SPORT,MUSTANG MACH-E" --years 2020-2026
 """
-import argparse, csv, sys
+import argparse
+import csv
+import sys
 from datetime import date, timedelta
 from pathlib import Path
 

@@ -1,6 +1,9 @@
 """Fakes that mimic the parts of the Gemini, BigQuery and Firestore SDKs this project uses.
 They prove the logic (tool loop, guard, validation, fallbacks, state parity), not the network calls."""
-import importlib, json, sys, types as pytypes
+import importlib
+import json
+import sys
+import types as pytypes
 from types import SimpleNamespace as NS
 
 def install_module(monkeypatch, name, module):

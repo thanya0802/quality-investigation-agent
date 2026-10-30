@@ -1,5 +1,6 @@
 """Tokenizer + BM25, small enough to explain line by line."""
-import math, re
+import math
+import re
 from collections import Counter
 
 STOP = set("""a an the of to in on for and or is are was were be been by with at from as that this these those it its

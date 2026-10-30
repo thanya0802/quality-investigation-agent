@@ -1,5 +1,7 @@
 """Optional Gemini client. Every caller has a deterministic fallback, and every call is audited."""
-import json, re, time
+import json
+import re
+import time
 from . import config
 from .audit import record
 

@@ -8,7 +8,9 @@ Caveats to state in interviews: many recalls come from manufacturer testing or w
 than public complaints, and recalls trigger complaint surges, so only the PRE-recall window counts.
 Run after `make real`:   python evals/backtest.py
 """
-import json, statistics, sys
+import json
+import statistics
+import sys
 from datetime import date
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -61,7 +63,7 @@ def run(ignore_recall_complaints):
 
 def main():
     results = {"all_complaints": run(False), "ignoring_recall_citing_complaints": run(True)}
-    a, b = results["all_complaints"], results["ignoring_recall_citing_complaints"]
+    a, _b = results["all_complaints"], results["ignoring_recall_citing_complaints"]
     print(f"History: {a['first_week']} to {a['last_complete_week']} ({a['weeks_of_history']} weeks), "
           f"{a['model_component_series']} model/component series, {a['recalls_in_scorable_window']} scorable recalls\n")
     print("| Variant | Recalls preceded by alert | Hit rate | Median lead (weeks) | Alerts | Alert precision |")

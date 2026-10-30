@@ -1,7 +1,13 @@
 """Fetch REAL recalls for the loaded models from NHTSA's public recalls API
 (api.nhtsa.gov/recalls/recallsByVehicle?make=&model=&modelYear=). Run after load_nhtsa.py.
 Field names are read case-insensitively and checked, so a schema change fails loudly."""
-import json, ssl, sys, time, urllib.error, urllib.parse, urllib.request
+import json
+import ssl
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 

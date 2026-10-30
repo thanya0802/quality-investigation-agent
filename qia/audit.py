@@ -1,6 +1,8 @@
 """Governance: an append-only record of what the agent did, with what input, and what came back.
 Every tool is wrapped with @audited, so nothing can run without leaving a row."""
-import functools, json, time
+import functools
+import json
+import time
 from . import state
 from .telemetry import log, new_id, now
 

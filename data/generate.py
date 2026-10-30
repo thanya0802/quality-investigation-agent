@@ -7,7 +7,9 @@ Planted ground truth:
   2. ARDEN / ELECTRICAL SYSTEM: spike starts 7 weeks ago; NO recall (unaddressed issue).
   3. KORU / AIR BAGS: an old recall with no current spike (must NOT be linked to anything).
 """
-import json, random, sys
+import json
+import random
+import sys
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -61,7 +63,8 @@ def generate(seed=11, weeks=52, today=None):
     recalls = [
         dict(recall_id="RCL-26V-118", make="HALCYON", model="VESTA", model_years="2024", component="SERVICE BRAKES",
              report_date=str(this_week - timedelta(weeks=7)),
-             defect_summary="Rear brake caliper pistons may corrode and seize, reducing braking performance and increasing stopping distance.",
+             defect_summary=("Rear brake caliper pistons may corrode and seize, reducing braking performance "
+                             "and increasing stopping distance."),
              remedy="Dealers will inspect and replace rear brake calipers."),
         dict(recall_id="RCL-25V-077", make="HALCYON", model="KORU", model_years="2024", component="AIR BAGS",
              report_date=str(this_week - timedelta(weeks=40)),

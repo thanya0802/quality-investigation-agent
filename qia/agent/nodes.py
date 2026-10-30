@@ -83,7 +83,8 @@ def _busiest(components, model):
     rows = warehouse.query(q + " GROUP BY component ORDER BY n DESC", tuple(params))
     return rows[0]["component"] if rows else components[0]
 
-INTENTS = ["refuse", "unsupported", "detect", "investigate", "breakdown_year", "breakdown_state", "safety", "similar", "recalls", "summarize", "sql"]
+INTENTS = ["refuse", "unsupported", "detect", "investigate", "breakdown_year", "breakdown_state", "safety",
+               "similar", "recalls", "summarize", "sql"]
 
 def _rule_intent(ql, scope):
     if re.search(r"\b(delete|drop|update|insert|truncate|modify|overwrite|remove)\b", ql): return "refuse"
@@ -299,7 +300,7 @@ Return JSON: {{"sql": "..."}}"""
 
 # ---------------- report ----------------
 def report(state):
-    ctx, ev, scope, intent = _ctx(state), state.get("evidence", []), state["scope"], state["intent"]
+    ctx, ev, _scope, intent = _ctx(state), state.get("evidence", []), state["scope"], state["intent"]
     if intent == "summarize":
         return _summary(state)
     if intent == "refuse":

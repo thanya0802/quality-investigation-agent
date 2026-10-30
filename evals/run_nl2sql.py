@@ -1,7 +1,10 @@
 """NL-to-SQL execution accuracy on REAL data: does the model's SQL return the same rows as a
 hand-written gold query? Run after `make real` with GEMINI_API_KEY set:  python evals/run_nl2sql.py
 Rows are compared as sorted lists of rounded values (column names and row order ignored)."""
-import json, statistics, sys, time
+import json
+import statistics
+import sys
+import time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from qia import config, llm, warehouse        # noqa: E402

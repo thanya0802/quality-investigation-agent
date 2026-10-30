@@ -4,7 +4,8 @@ Analytics data lives in the warehouse (SQLite locally, BigQuery on GCP). State i
 small, frequent writes and in-place updates (scope changes, superseded hypotheses), which suit an
 operational store, not an analytics warehouse. Locally: SQLite. On GCP: Firestore.
 Both backends implement the same methods, so memory.py and audit.py never know which one runs."""
-import json, time
+import json
+import time
 from . import config, warehouse
 
 class SQLiteState:

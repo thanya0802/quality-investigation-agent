@@ -91,8 +91,9 @@ def test_component_vocabulary_matches_real_names(db):
 
 def test_every_node_output_key_is_declared_in_state():
     """LangGraph drops undeclared keys silently; this caught a real bug on the first real-data run."""
-    import ast, inspect
-    from qia.agent import graph, nodes
+    import ast
+    import inspect
+    from qia.agent import graph
     declared = set(graph.State.__annotations__)
     returned = set()
     for _, fn in graph.ORDER:

@@ -97,3 +97,6 @@ Notes on what broke, why, and what changed. Newest last.
   detector returned, so the symptom terms came out generic. The agent instructions now require the
   onset week.
 - Terraform's provider lock file is now committed so every machine uses the same provider version.
+- CI had failed on every push at the lint step (48 ruff errors) without being noticed, because tests
+  were only run locally. Split multi-imports, set the line limit to 140 and wrapped longer lines.
+  `make lint` runs the same check locally before pushing.

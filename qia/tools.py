@@ -97,8 +97,9 @@ def symptom_terms(ctx, model, component, since, k=6):
                              (model, component, since))
     before = warehouse.query("SELECT description FROM complaints WHERE model=? AND component=? AND week_start < ?",
                              (model, component, since))
-    noise = {"extremely", "concerned", "very", "really", "though", "well", "currently", "even", "again", "never", "issue", "issues", "problem", "problems", "ford", "dealer",
-             "dealership", "recall", "recalls", "vehicle", "car"}
+    noise = {"extremely", "concerned", "very", "really", "though", "well", "currently", "even", "again", "never",
+             "issue", "issues", "problem", "problems", "ford", "dealer", "dealership", "recall", "recalls",
+             "vehicle", "car"}
     keep = lambda t: t not in noise and not any(ch.isdigit() for ch in t)
     rc = Counter(t for r in recent for t in set(tokenize(r["description"])) if keep(t))
     bc = Counter(t for r in before for t in set(tokenize(r["description"])))

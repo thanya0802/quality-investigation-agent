@@ -1,4 +1,7 @@
-import json, sys, time, uuid
+import json
+import sys
+import time
+import uuid
 
 def new_id(prefix):
     return f"{prefix}-{uuid.uuid4().hex[:10]}"
